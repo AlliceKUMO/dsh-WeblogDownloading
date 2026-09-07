@@ -1,0 +1,6 @@
+# 运行 GUI：pip install -r requirements.txt 后 python weibo_favorites_gui.py
+# 打包 exe：参考 build_exe.ps1
+customtkinter>=5.2.0
+Pillow>=9.0.0
+requests>=2.28.0
+# 注：若使用 Python 3.7 及较旧 OpenSSL 环境，需额外安装 urllib3<2

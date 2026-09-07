@@ -1,0 +1,11 @@
+{
+  "_说明": "配置模板。复制本文件为 config.json 后填写。Cookie 获取：浏览器登录 weibo.com 后按 F12，打开网络面板，刷新收藏页，点开任意 weibo.com/ajax 请求，在请求头中复制 Cookie 整段粘贴到下方 cookie 字段（连同 Cookie: 前缀也可，程序会自动去除）。",
+  "cookie": "在此粘贴Cookie",
+  "download_dir": "downloads",
+  "list_api": "https://weibo.com/ajax/favorites/all_fav?uid=你的微博UID&with_total=true",
+  "request_interval": [1.0, 3.0],
+  "image_interval": [0.3, 1.0],
+  "retry_times": 3,
+  "save_raw_json": true,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}

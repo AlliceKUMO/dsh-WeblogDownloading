@@ -1,0 +1,22 @@
+# ===== 虚拟环境与构建产物（勿上传）=====
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+*.spec
+
+# ===== 用户数据与敏感信息（勿上传！）=====
+# config.json 包含你的微博 Cookie，绝不能上传
+config.json
+config.local.json
+*.log
+downloads/
+已下载清单.json
+probe_output.json
+gui_debug.log
+
+# ===== 本地调试残留 =====
+debug_err.txt
+debug_out.txt
+*.lnk
