@@ -20,3 +20,7 @@ gui_debug.log
 debug_err.txt
 debug_out.txt
 *.lnk
+
+# ===== 本地 SSH 辅助（勿上传）=====
+ssh-wrapper.cmd
+.ssh_known_hosts
