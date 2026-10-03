@@ -4,7 +4,7 @@
 ================
 - 逐条下载微博收藏：正文文字 + 图片原图 + 用户名 + 发布时间
 - 目录结构：下载目录/用户名-微博时间/微博内容.txt, 图片1.jpg ...
-- 转发微博：原博正文与图片一并下载，保存到子文件夹 "原博-用户名-时间/"
+- 转发微博：只保存被转发的原博（原博正文与图片，目录即"用户名-时间"，不带前缀），文本末尾附一行转发来源
 - 断点续传：已存在的文件自动跳过，中断后重跑只补缺失项
 - 长微博：自动获取全文
 - 探测模式：先运行 --probe 验证 Cookie 与接口字段，再全量下载
@@ -383,64 +383,74 @@ def build_text(status, full_text):
     return "\n".join(lines)
 
 
-def process_status(session, status, base_dir, cfg, stats, is_root=True, dry_run=False):
+def process_status(session, status, base_dir, cfg, stats, dry_run=False):
     """
-    处理一条微博（根收藏或转发的原博）。
-    base_dir: 根收藏时为下载根目录；原博时为所属收藏的目录。
-    返回该条的处理结果 dict（根收藏用于写进度清单；原博递归时不返回）。
+    处理一条收藏微博。
+    转发微博：只保存被转发的原博 —— 以原博身份建立顶层目录（命名不带前缀），
+              目录内放原博的正文与图片，并在文本末尾附一行转发来源。
+    返回处理结果 dict；其中 mid 始终是「收藏条目本身的 mid」，供进度清单跳过使用。
     """
-    user = status.get("user") or {}
-    name = clean_filename(user.get("screen_name") or user.get("name") or "unknown")
-    ts = format_time(status.get("created_at")) or "unknown-time"
-    mid = str(status.get("mid") or status.get("idstr") or status.get("id") or "")
-    dir_name = ("原博-" if not is_root else "") + "%s-%s" % (name, ts)
-    urls = get_image_urls(status)
+    entry_mid = str(status.get("mid") or status.get("idstr") or status.get("id") or "")
+    rt = status.get("retweeted_status")
+    is_retweet = isinstance(rt, dict) and bool(rt)
+    target = rt if is_retweet else status
 
-    info = {"mid": mid, "user": name, "time": ts,
-            "dir": dir_name, "images": len(urls), "text": "exists", "status": "done"}
+    t_user = target.get("user") or {}
+    name = clean_filename(t_user.get("screen_name") or t_user.get("name") or "unknown")
+    ts = format_time(target.get("created_at")) or "unknown-time"
+    target_mid = str(target.get("mid") or target.get("idstr") or target.get("id") or "")
+    dir_name = "%s-%s" % (name, ts)
+    urls = get_image_urls(target)
+
+    info = {"mid": entry_mid, "user": name, "time": ts,
+            "dir": dir_name, "images": len(urls), "text": "exists",
+            "status": "done", "is_retweet": is_retweet}
 
     if dry_run:
-        print("  [计划] %s | 图片 %d 张 | mid=%s" % (dir_name, len(urls), mid))
+        print("  [计划] %s%s | 图片 %d 张 | mid=%s" % (
+            dir_name, "（转发，只保存原博）" if is_retweet else "", len(urls), entry_mid))
         return info
 
-    target, resumed = get_target_dir(base_dir, dir_name, mid)
-    txt_path = os.path.join(target, TXT_NAME)
+    target_dir, resumed = get_target_dir(base_dir, dir_name, target_mid)
+    txt_path = os.path.join(target_dir, TXT_NAME)
 
     if not (resumed and os.path.exists(txt_path)):
-        full_text = clean_text(status.get("text") or "")
-        if status.get("isLongText"):
-            lt = fetch_longtext(session, mid)
+        full_text = clean_text(target.get("text") or "")
+        if target.get("isLongText"):
+            lt = fetch_longtext(session, target_mid)
             if lt:
                 full_text = clean_text(lt)
-        body = build_text(status, full_text)
-        if is_root and status.get("retweeted_status"):
-            rt = status["retweeted_status"]
-            rt_user = (rt.get("user") or {}).get("screen_name") or "未知"
-            rt_ts = format_time(rt.get("created_at")) or "unknown-time"
-            body += "\n\n[转发] 原博内容见子文件夹: 原博-%s-%s" % (
-                clean_filename(rt_user), rt_ts)
+        body = build_text(target, full_text)
+        if is_retweet:
+            r_user = (status.get("user") or {}).get("screen_name") or "未知"
+            r_ts = format_time(status.get("created_at")) or "未知"
+            r_text = clean_text(status.get("text") or "")
+            body += "\n\n" + "-" * 40 + "\n[本条为转发]\n转发者: %s\n转发时间: %s" % (r_user, r_ts)
+            if r_text:
+                body += "\n转发语: %s" % r_text
         with open(txt_path, "w", encoding="utf-8-sig") as f:
             f.write(body)
         stats["new"] += 1
         info["text"] = "new"
-        _emit("text", mid=mid, dir=os.path.basename(target))
-        print("  [保存] %s" % os.path.basename(target))
+        _emit("text", mid=entry_mid, dir=os.path.basename(target_dir))
+        print("  [保存] %s" % os.path.basename(target_dir))
     else:
         stats["skipped"] += 1
-    # 原始 JSON（断点续传的识别标记 + 排查用）
+
+    # 原始 JSON：保存原博数据（断点续传认亲标记 + 排查用）
     if cfg.get("save_raw_json"):
-        raw_path = os.path.join(target, RAW_NAME)
+        raw_path = os.path.join(target_dir, RAW_NAME)
         if not os.path.exists(raw_path):
             with open(raw_path, "w", encoding="utf-8") as f:
-                json.dump(status, f, ensure_ascii=False, indent=2)
+                json.dump(target, f, ensure_ascii=False, indent=2)
 
-    # 下载图片（已存在自动跳过）
+    # 下载图片（原博图片；已存在自动跳过）
     img_failed = 0
     for i, url in enumerate(urls, 1):
         ext = os.path.splitext(urlparse(url).path)[1] or ".jpg"
-        img_path = os.path.join(target, "图片%d%s" % (i, ext))
+        img_path = os.path.join(target_dir, "图片%d%s" % (i, ext))
         res = download_image(session, url, img_path, cfg)
-        _emit("image", mid=mid, url=url, result=res)
+        _emit("image", mid=entry_mid, url=url, result=res)
         if res == "downloaded":
             stats["images"] += 1
             print("    [下载] %s" % os.path.basename(img_path))
@@ -455,16 +465,7 @@ def process_status(session, status, base_dir, cfg, stats, is_root=True, dry_run=
     info["image_failed"] = img_failed
     info["status"] = "partial" if img_failed else "done"
     _emit("item_done", info=info)
-    print("  [完成] %s" % os.path.basename(target))
-
-    # 转发的原博：递归处理，存入子文件夹
-    rt = status.get("retweeted_status")
-    if rt and isinstance(rt, dict):
-        if dry_run:
-            print("    └─ 包含转发原博：")
-            process_status(session, rt, base_dir, cfg, stats, is_root=False, dry_run=True)
-        else:
-            process_status(session, rt, target, cfg, stats, is_root=False, dry_run=False)
+    print("  [完成] %s" % os.path.basename(target_dir))
 
     return info
 
@@ -647,7 +648,7 @@ def run_batch_download(session, cfg, base, manifest, opts, stats=None):
             else:
                 try:
                     info = process_status(session, s, base, cfg, stats,
-                                          is_root=True, dry_run=opts.dry_run)
+                                          dry_run=opts.dry_run)
                     if info and not opts.dry_run:
                         entry = {
                             "user": info["user"], "time": info["time"],

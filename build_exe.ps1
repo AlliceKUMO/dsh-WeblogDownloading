@@ -1,24 +1,28 @@
-# Build script: generates dist\WeiBoFavoritesDownloader\ folder package + zip
+# Build script: generates the folder package + zip (ASCII-only file)
 # Usage: powershell -ExecutionPolicy Bypass -File build_exe.ps1
-# NOTE: keep this file ASCII-only (Windows PowerShell 5.1 parses non-BOM UTF-8 as GBK)
+#
+# Dependencies live in the project-local "deps" folder (installed with:
+#   python -m pip install --target deps customtkinter pyinstaller )
+# The system Python (3.14) already provides requests / Pillow.
 $ErrorActionPreference = "Stop"
 
-$venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
-if (-not (Test-Path $venvPython)) {
-    Write-Host "venv not found. Create it first: python -m venv .venv"
+$deps = Join-Path $PSScriptRoot "deps"
+if (-not (Test-Path $deps)) {
+    Write-Host "deps folder not found. Install it first:"
+    Write-Host "  python -m pip install --target deps customtkinter pyinstaller"
     exit 1
 }
-
-Write-Host "==> Installing/checking dependencies"
-& $venvPython -m pip install --quiet --disable-pip-version-check customtkinter pillow pyinstaller requests "urllib3<2" "requests<2.32"
+$env:PYTHONPATH = $deps
+$env:PYTHONDONTWRITEBYTECODE = "1"
 
 Write-Host "==> Building with PyInstaller (onedir mode: no runtime extraction, avoids fatal-error dialog)"
-# Clean PyInstaller caches first: otherwise it may skip rebuilding and leave dist/ stale
+# Clean caches first: otherwise PyInstaller may skip rebuilding and leave dist/ stale
 Remove-Item (Join-Path $PSScriptRoot "build") -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $PSScriptRoot "dist\WeiboFavoritesDownloader") -Recurse -Force -ErrorAction SilentlyContinue
-& $venvPython -m PyInstaller --noconfirm --onedir --windowed `
+& python -m PyInstaller --noconfirm --onedir --windowed `
     --name "WeiboFavoritesDownloader" `
     --collect-all customtkinter `
+    --paths $deps `
     weibo_favorites_gui.py
 if ($LASTEXITCODE -ne 0) { Write-Host "BUILD FAILED"; exit 1 }
 

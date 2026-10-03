@@ -1,26 +1,35 @@
-# ===== 虚拟环境与构建产物（勿上传）=====
+# ===== build artifacts / virtual envs =====
 .venv/
+.venv314/
+.venvpro/
+deps/
+.piptmp/
 dist/
+dist-out/
 build/
+build-out/
 __pycache__/
 *.pyc
 *.spec
 
-# ===== 用户数据与敏感信息（勿上传！）=====
-# config.json 包含你的微博 Cookie，绝不能上传
+# ===== user data and secrets (never upload) =====
 config.json
+config.json.*
 config.local.json
 *.log
 downloads/
-已下载清单.json
 probe_output.json
 gui_debug.log
 
-# ===== 本地调试残留 =====
+# ===== local helpers / leftovers =====
+ssh-wrapper.cmd
+.ssh_known_hosts
 debug_err.txt
 debug_out.txt
 *.lnk
-
-# ===== ���� SSH ���������ϴ���=====
-ssh-wrapper.cmd
-.ssh_known_hosts
+test_rt.py
+test_rt_offline.py
+build_and_release.ps1
+build_and_release2.ps1
+build_and_release3.ps1
+build_and_release4.ps1

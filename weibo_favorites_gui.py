@@ -29,7 +29,7 @@ if getattr(sys, "frozen", False):
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
-APP_VERSION = "v1.1"
+APP_VERSION = "v1.2"
 # 默认下载目录放在"我的文档"，与程序本体分离 —— 更新/删除程序不影响下载数据
 DEFAULT_DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Documents", "微博收藏下载")
 # 旧版本的默认目录（exe 旁 downloads），用于迁移判断
@@ -511,7 +511,7 @@ class App(ctk.CTk):
                 mark = "  [已取消收藏]"
             else:
                 mark = "  [未完成: %s]" % STATE_TEXT.get(st, st)
-        rt_note = "  [转发微博 · 将连带下载原博]" if s.get("retweeted_status") else ""
+        rt_note = "  [转发微博 · 只保存原博]" if s.get("retweeted_status") else ""
 
         pos = self.manual_index + 1
         self.manual_pos_label.configure(text="第 %d / %d 条（本页）%s%s" % (pos, len(self.manual_items), mark, rt_note))
@@ -637,7 +637,7 @@ class App(ctk.CTk):
                  "images": 0, "image_skipped": 0, "image_failed": 0, "failed": []}
         try:
             info = core.process_status(self.session, s, self.base_dir, self.cfg,
-                                       stats, is_root=True)
+                                       stats)
         except Exception as e:
             err = str(e)
             def _err():
