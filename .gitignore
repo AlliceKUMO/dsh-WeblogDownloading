@@ -32,4 +32,5 @@ test_rt_offline.py
 build_and_release.ps1
 build_and_release2.ps1
 build_and_release3.ps1
-build_and_release4.ps1
+build_and_release4.ps1release/*/
+build_v12_fix.ps1
